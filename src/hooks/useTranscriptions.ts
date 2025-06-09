@@ -10,7 +10,7 @@ export interface Transcription {
   meeting_url: string;
   description?: string;
   transcript_content?: string;
-  status: 'processing' | 'completed' | 'failed';
+  status: string; // Changed from union type to string to match Supabase
   participants_count?: number;
   duration_minutes?: number;
   scheduled_time?: string;
