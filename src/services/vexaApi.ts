@@ -90,10 +90,22 @@ class VexaApiClient {
     date_to?: string;
     participants?: string[];
   }) {
-    const params = new URLSearchParams({
-      q: query,
-      ...filters,
-    });
+    const params = new URLSearchParams({ q: query });
+    
+    if (filters) {
+      if (filters.date_from) {
+        params.append('date_from', filters.date_from);
+      }
+      if (filters.date_to) {
+        params.append('date_to', filters.date_to);
+      }
+      if (filters.participants) {
+        filters.participants.forEach(participant => {
+          params.append('participants', participant);
+        });
+      }
+    }
+    
     return this.makeRequest(`/transcripts/search?${params}`);
   }
 
