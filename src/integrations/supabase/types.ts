@@ -9,7 +9,130 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      google_integrations: {
+        Row: {
+          access_token: string | null
+          auto_join_enabled: boolean
+          created_at: string
+          google_email: string
+          id: string
+          refresh_token: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          auto_join_enabled?: boolean
+          created_at?: string
+          google_email: string
+          id?: string
+          refresh_token?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          auto_join_enabled?: boolean
+          created_at?: string
+          google_email?: string
+          id?: string
+          refresh_token?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_integrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transcriptions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          meeting_url: string
+          participants_count: number | null
+          scheduled_time: string | null
+          status: string
+          title: string
+          transcript_content: string | null
+          updated_at: string
+          user_id: string
+          vexa_transcript_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          meeting_url: string
+          participants_count?: number | null
+          scheduled_time?: string | null
+          status?: string
+          title: string
+          transcript_content?: string | null
+          updated_at?: string
+          user_id: string
+          vexa_transcript_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          meeting_url?: string
+          participants_count?: number | null
+          scheduled_time?: string | null
+          status?: string
+          title?: string
+          transcript_content?: string | null
+          updated_at?: string
+          user_id?: string
+          vexa_transcript_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

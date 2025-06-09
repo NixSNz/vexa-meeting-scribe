@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Users, Link, Calendar } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useTranscriptions } from '@/hooks/useTranscriptions';
 
 const InviteBot = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+  const { createTranscription } = useTranscriptions();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     meetingLink: '',
@@ -20,46 +22,40 @@ const InviteBot = () => {
     scheduledTime: ''
   });
 
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
   const handleInviteBot = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+    
     setLoading(true);
 
-    try {
-      // Aqui seria a integração com a API da Vexa.ai
-      // POST para endpoint de convite do bot
-      const response = await fetch('/api/vexa/invite-bot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vexaToken')}`
-        },
-        body: JSON.stringify({
-          meeting_url: formData.meetingLink,
-          title: formData.title,
-          description: formData.description,
-          scheduled_time: formData.scheduledTime
-        })
-      });
+    const { error } = await createTranscription({
+      title: formData.title,
+      meeting_url: formData.meetingLink,
+      description: formData.description,
+      scheduled_time: formData.scheduledTime || undefined,
+    });
 
-      if (response.ok) {
-        toast({
-          title: "Bot convidado com sucesso!",
-          description: "O bot participará da reunião e gerará a transcrição automaticamente.",
-        });
-        navigate('/');
-      } else {
-        throw new Error('Erro ao convidar bot');
-      }
-    } catch (error) {
-      toast({
-        title: "Erro ao convidar bot",
-        description: "Tente novamente em alguns instantes.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    if (!error) {
+      navigate('/');
     }
+
+    setLoading(false);
   };
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -119,12 +115,13 @@ const InviteBot = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="title">Título da Reunião</Label>
+                <Label htmlFor="title">Título da Reunião *</Label>
                 <Input
                   id="title"
                   placeholder="Ex: Reunião de Planejamento Q4"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  required
                 />
               </div>
 
@@ -140,7 +137,7 @@ const InviteBot = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="scheduledTime">Data e Hora Agendada</Label>
+                <Label htmlFor="scheduledTime">Data e Hora Agendada (Opcional)</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <Input
@@ -174,7 +171,7 @@ const InviteBot = () => {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={loading || !formData.meetingLink}
+                  disabled={loading || !formData.meetingLink || !formData.title}
                   className="flex-1 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
                 >
                   {loading ? 'Convidando...' : 'Convidar Bot'}

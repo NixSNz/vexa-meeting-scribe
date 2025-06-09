@@ -1,16 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mic, Mail, Lock, User } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const Auth = () => {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { signIn, signUp, user, loading } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({
     email: '',
     password: ''
@@ -22,81 +24,47 @@ const Auth = () => {
     confirmPassword: ''
   });
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user && !loading) {
+      navigate('/');
+    }
+  }, [user, loading, navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     
-    try {
-      // Integração com Supabase Auth
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData)
-      });
-
-      if (response.ok) {
-        const { token, user } = await response.json();
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        window.location.href = '/';
-      } else {
-        throw new Error('Credenciais inválidas');
-      }
-    } catch (error) {
-      toast({
-        title: "Erro no login",
-        description: "Verifique suas credenciais e tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    const { error } = await signIn(loginData.email, loginData.password);
+    
+    if (!error) {
+      navigate('/');
     }
+    
+    setIsLoading(false);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (registerData.password !== registerData.confirmPassword) {
-      toast({
-        title: "Senhas não conferem",
-        description: "Verifique se as senhas estão iguais.",
-        variant: "destructive",
-      });
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
     
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: registerData.name,
-          email: registerData.email,
-          password: registerData.password
-        })
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Conta criada com sucesso!",
-          description: "Você já pode fazer login com suas credenciais.",
-        });
-        // Switch to login tab
-      } else {
-        throw new Error('Erro ao criar conta');
-      }
-    } catch (error) {
-      toast({
-        title: "Erro no cadastro",
-        description: "Tente novamente em alguns instantes.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    const { error } = await signUp(registerData.email, registerData.password, registerData.name);
+    
+    setIsLoading(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-slate-100 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-slate-100 flex items-center justify-center p-4">
@@ -161,9 +129,9 @@ const Auth = () => {
                   <Button 
                     type="submit" 
                     className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
-                    disabled={loading}
+                    disabled={isLoading}
                   >
-                    {loading ? 'Entrando...' : 'Entrar'}
+                    {isLoading ? 'Entrando...' : 'Entrar'}
                   </Button>
                 </form>
               </TabsContent>
@@ -237,9 +205,9 @@ const Auth = () => {
                   <Button 
                     type="submit" 
                     className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
-                    disabled={loading}
+                    disabled={isLoading || registerData.password !== registerData.confirmPassword}
                   >
-                    {loading ? 'Criando conta...' : 'Criar conta'}
+                    {isLoading ? 'Criando conta...' : 'Criar conta'}
                   </Button>
                 </form>
               </TabsContent>
