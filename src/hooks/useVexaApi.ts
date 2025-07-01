@@ -16,13 +16,15 @@ export const useTranscripts = (page = 1, limit = 20) => {
   const loadTranscripts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const vexaApi = getVexaApi();
       const data = await vexaApi.getTranscripts(page, limit);
-      setTranscripts(data.transcripts || []);
+      setTranscripts(data.transcripts || data || []);
     } catch (err) {
+      console.error('Error loading transcripts from Vexa:', err);
       setError(err.message);
       toast({
-        title: "Erro ao carregar transcrições",
+        title: "Erro ao carregar transcrições da Vexa",
         description: "Verifique sua conexão e tente novamente.",
         variant: "destructive",
       });
@@ -49,13 +51,15 @@ export const useTranscript = (transcriptId: string) => {
   const loadTranscript = async () => {
     try {
       setLoading(true);
+      setError(null);
       const vexaApi = getVexaApi();
       const data = await vexaApi.getTranscript(transcriptId);
       setTranscript(data);
     } catch (err) {
+      console.error('Error loading transcript from Vexa:', err);
       setError(err.message);
       toast({
-        title: "Erro ao carregar transcrição",
+        title: "Erro ao carregar transcrição da Vexa",
         description: "Transcrição não encontrada ou inacessível.",
         variant: "destructive",
       });
@@ -89,9 +93,10 @@ export const useBotInvite = () => {
       
       return result;
     } catch (err) {
+      console.error('Error inviting bot:', err);
       toast({
         title: "Erro ao convidar bot",
-        description: err.message,
+        description: err.message || "Erro na comunicação com a API da Vexa.",
         variant: "destructive",
       });
       throw err;
@@ -100,7 +105,40 @@ export const useBotInvite = () => {
     }
   };
 
-  return { inviteBot, loading };
+  const testConnection = async () => {
+    try {
+      setLoading(true);
+      const vexaApi = getVexaApi();
+      const result = await vexaApi.testConnection();
+      
+      if (result.success) {
+        toast({
+          title: "Conexão bem-sucedida!",
+          description: "API da Vexa está funcionando corretamente.",
+        });
+      } else {
+        toast({
+          title: "Erro de conexão",
+          description: result.error || "Não foi possível conectar com a API da Vexa.",
+          variant: "destructive",
+        });
+      }
+      
+      return result;
+    } catch (err) {
+      console.error('Error testing connection:', err);
+      toast({
+        title: "Erro de conexão",
+        description: "Não foi possível testar a conexão com a API da Vexa.",
+        variant: "destructive",
+      });
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { inviteBot, testConnection, loading };
 };
 
 export const useAutoJoin = () => {
@@ -124,9 +162,10 @@ export const useAutoJoin = () => {
       
       return result;
     } catch (err) {
+      console.error('Error setting up auto-join:', err);
       toast({
         title: "Erro na configuração",
-        description: err.message,
+        description: err.message || "Erro na comunicação com a API da Vexa.",
         variant: "destructive",
       });
       throw err;
@@ -136,4 +175,31 @@ export const useAutoJoin = () => {
   };
 
   return { setupAutoJoin, loading };
+};
+
+export const useBotStatus = () => {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchBotStatus = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const vexaApi = getVexaApi();
+      const data = await vexaApi.getBotStatus();
+      setStatus(data);
+    } catch (err) {
+      console.error('Error fetching bot status:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBotStatus();
+  }, []);
+
+  return { status, loading, error, refetch: fetchBotStatus };
 };

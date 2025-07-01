@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { getVexaApi } from '@/services/vexaApi';
 
 export interface Transcription {
   id: string;
@@ -10,7 +11,7 @@ export interface Transcription {
   meeting_url: string;
   description?: string;
   transcript_content?: string;
-  status: string; // Changed from union type to string to match Supabase
+  status: string;
   participants_count?: number;
   duration_minutes?: number;
   scheduled_time?: string;
@@ -30,6 +31,7 @@ export const useTranscriptions = () => {
     if (!user) return;
     
     try {
+      // Busca transcrições do banco local
       const { data, error } = await supabase
         .from('transcriptions')
         .select('*')
@@ -74,46 +76,57 @@ export const useTranscriptions = () => {
 
       if (dbError) throw dbError;
 
-      // Aqui você integraria com a API da Vexa para convidar o bot
-      // Exemplo de chamada para a API da Vexa:
-      /*
-      const vexaResponse = await fetch('/api/vexa/invite-bot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.VEXA_API_KEY}`
-        },
-        body: JSON.stringify({
+      // Integra com a API da Vexa para convidar o bot
+      try {
+        const vexaApi = getVexaApi();
+        const vexaResponse = await vexaApi.inviteBot({
           meeting_url: data.meeting_url,
           title: data.title,
           description: data.description,
           scheduled_time: data.scheduled_time,
-          callback_url: `${window.location.origin}/api/vexa/webhook`
-        })
-      });
+        });
 
-      if (vexaResponse.ok) {
-        const vexaData = await vexaResponse.json();
-        // Atualizar com o ID da Vexa
+        console.log('Vexa bot invite response:', vexaResponse);
+
+        // Atualizar com o ID da Vexa se disponível
+        if (vexaResponse.transcript_id || vexaResponse.id) {
+          await supabase
+            .from('transcriptions')
+            .update({ 
+              vexa_transcript_id: vexaResponse.transcript_id || vexaResponse.id,
+              status: 'invited'
+            })
+            .eq('id', transcription.id);
+        }
+
+        toast({
+          title: "Bot convidado com sucesso!",
+          description: "O bot participará da reunião e gerará a transcrição automaticamente.",
+        });
+
+      } catch (vexaError) {
+        console.error('Vexa API error:', vexaError);
+        
+        // Atualiza status para erro mas mantém o registro
         await supabase
           .from('transcriptions')
-          .update({ vexa_transcript_id: vexaData.transcript_id })
+          .update({ status: 'error' })
           .eq('id', transcription.id);
+
+        toast({
+          title: "Transcrição salva, mas houve erro na integração",
+          description: "A transcrição foi salva localmente, mas não foi possível conectar com o bot.",
+          variant: "destructive",
+        });
       }
-      */
 
       await fetchTranscriptions();
-      
-      toast({
-        title: "Bot convidado com sucesso!",
-        description: "O bot participará da reunião e gerará a transcrição automaticamente.",
-      });
-
       return { data: transcription, error: null };
+
     } catch (error) {
       console.error('Error creating transcription:', error);
       toast({
-        title: "Erro ao convidar bot",
+        title: "Erro ao criar transcrição",
         description: "Tente novamente em alguns instantes.",
         variant: "destructive",
       });
@@ -121,9 +134,36 @@ export const useTranscriptions = () => {
     }
   };
 
+  const syncWithVexa = async () => {
+    if (!user) return;
+
+    try {
+      const vexaApi = getVexaApi();
+      
+      // Testa a conexão primeiro
+      const connectionTest = await vexaApi.testConnection();
+      if (!connectionTest.success) {
+        console.error('Vexa API connection failed:', connectionTest.error);
+        return;
+      }
+
+      // Busca transcrições da Vexa
+      const vexaTranscripts = await vexaApi.getTranscripts();
+      console.log('Vexa transcripts:', vexaTranscripts);
+
+      // Aqui você pode implementar lógica para sincronizar
+      // as transcrições da Vexa com o banco local
+      
+    } catch (error) {
+      console.error('Error syncing with Vexa:', error);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchTranscriptions();
+      // Sincroniza com Vexa após carregar transcrições locais
+      syncWithVexa();
     }
   }, [user]);
 
@@ -132,5 +172,6 @@ export const useTranscriptions = () => {
     loading,
     createTranscription,
     fetchTranscriptions,
+    syncWithVexa,
   };
 };
