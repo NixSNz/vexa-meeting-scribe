@@ -1,62 +1,51 @@
 
-// Integração com a API da Vexa.ai hospedada na VPS
-const VEXA_API_BASE = 'http://89.47.113.63:18056'; // Gateway principal
-const VEXA_BOT_MANAGER = 'http://89.47.113.63:18085'; // Bot Manager
-const VEXA_TRANSCRIPTION_COLLECTOR = 'http://89.47.113.63:18123'; // Transcription Collector
-const VEXA_ADMIN_API = 'http://89.47.113.63:18057'; // Admin API
+// Integração com a API da Vexa.ai via Supabase Edge Functions
+import { supabase } from '@/integrations/supabase/client';
 
 interface VexaApiConfig {
   apiKey?: string;
-  baseUrl?: string;
 }
 
 class VexaApiClient {
   private config: VexaApiConfig;
 
   constructor(config: VexaApiConfig = {}) {
-    this.config = {
-      baseUrl: VEXA_API_BASE,
-      ...config
-    };
+    this.config = config;
   }
 
-  private async makeRequest(endpoint: string, options: RequestInit = {}, baseUrl?: string) {
-    const url = `${baseUrl || this.config.baseUrl}${endpoint}`;
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(this.config.apiKey && { 'Authorization': `Bearer ${this.config.apiKey}` }),
-      ...options.headers,
-    };
-
-    console.log('Vexa API Request:', { url, method: options.method || 'GET' });
+  private async makeProxyRequest(action: string, service: string = 'gateway', data?: any) {
+    console.log('Vexa API Proxy Request:', { action, service, data });
 
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
+      const { data: response, error } = await supabase.functions.invoke('vexa-proxy', {
+        body: {
+          action,
+          service,
+          ...data
+        }
       });
 
-      console.log('Vexa API Response:', response.status, response.statusText);
-
-      if (!response.ok) {
-        throw new Error(`Vexa API Error: ${response.status} ${response.statusText}`);
+      if (error) {
+        console.error('Supabase Function Error:', error);
+        throw new Error(`API Error: ${error.message}`);
       }
 
-      return response.json();
+      console.log('Vexa API Proxy Response:', response);
+      return response;
     } catch (error) {
-      console.error('Vexa API Error:', error);
+      console.error('Vexa API Proxy Error:', error);
       throw error;
     }
   }
 
   // Obter lista de transcrições (via Transcription Collector)
   async getTranscripts(page = 1, limit = 20) {
-    return this.makeRequest(`/transcripts?page=${page}&limit=${limit}`, {}, VEXA_TRANSCRIPTION_COLLECTOR);
+    return this.makeProxyRequest('transcripts', 'transcription-collector', { page, limit });
   }
 
   // Obter transcrição específica (via Transcription Collector)
   async getTranscript(transcriptId: string) {
-    return this.makeRequest(`/transcripts/${transcriptId}`, {}, VEXA_TRANSCRIPTION_COLLECTOR);
+    return this.makeProxyRequest('transcripts', 'transcription-collector', { transcriptId });
   }
 
   // Convidar bot para reunião (via Bot Manager)
@@ -66,10 +55,7 @@ class VexaApiClient {
     description?: string;
     scheduled_time?: string;
   }) {
-    return this.makeRequest('/bot/invite', {
-      method: 'POST',
-      body: JSON.stringify(meetingData),
-    }, VEXA_BOT_MANAGER);
+    return this.makeProxyRequest('bot-invite', 'bot-manager', meetingData);
   }
 
   // Configurar participação automática (via Bot Manager)
@@ -78,22 +64,17 @@ class VexaApiClient {
     access_token: string;
     calendar_ids?: string[];
   }) {
-    return this.makeRequest('/bot/auto-join', {
-      method: 'POST',
-      body: JSON.stringify(calendarData),
-    }, VEXA_BOT_MANAGER);
+    return this.makeProxyRequest('auto-join', 'bot-manager', calendarData);
   }
 
   // Obter status do bot (via Bot Manager)
   async getBotStatus() {
-    return this.makeRequest('/bot/status', {}, VEXA_BOT_MANAGER);
+    return this.makeProxyRequest('bot-status', 'bot-manager');
   }
 
   // Cancelar convite do bot (via Bot Manager)
   async cancelBotInvite(meetingId: string) {
-    return this.makeRequest(`/bot/cancel/${meetingId}`, {
-      method: 'DELETE',
-    }, VEXA_BOT_MANAGER);
+    return this.makeProxyRequest('cancel-invite', 'bot-manager', { meetingId });
   }
 
   // Buscar transcrições (via Transcription Collector)
@@ -102,41 +83,32 @@ class VexaApiClient {
     date_to?: string;
     participants?: string[];
   }) {
-    const params = new URLSearchParams({ q: query });
-    
-    if (filters) {
-      if (filters.date_from) {
-        params.append('date_from', filters.date_from);
-      }
-      if (filters.date_to) {
-        params.append('date_to', filters.date_to);
-      }
-      if (filters.participants) {
-        filters.participants.forEach(participant => {
-          params.append('participants', participant);
-        });
-      }
-    }
-    
-    return this.makeRequest(`/transcripts/search?${params}`, {}, VEXA_TRANSCRIPTION_COLLECTOR);
+    return this.makeProxyRequest('search-transcripts', 'transcription-collector', { 
+      query, 
+      filters 
+    });
   }
 
   // Exportar transcrição (via Transcription Collector)
   async exportTranscript(transcriptId: string, format: 'txt' | 'json' | 'srt') {
-    return this.makeRequest(`/transcripts/${transcriptId}/export?format=${format}`, {}, VEXA_TRANSCRIPTION_COLLECTOR);
+    return this.makeProxyRequest('export-transcript', 'transcription-collector', {
+      transcriptId,
+      format
+    });
   }
 
   // Obter estatísticas do usuário (via Admin API)
   async getUserStats() {
-    return this.makeRequest('/user/stats', {}, VEXA_ADMIN_API);
+    return this.makeProxyRequest('user-stats', 'admin-api');
   }
 
   // Método para testar conectividade
   async testConnection() {
     try {
-      const response = await this.makeRequest('/health', {});
+      const response = await this.makeProxyRequest('health', 'gateway');
       return { success: true, data: response };
     } catch (error) {
+      console.error('Connection test failed:', error);
       return { success: false, error: error.message };
     }
   }
@@ -152,7 +124,6 @@ export const initVexaApi = (apiKey?: string) => {
 
 export const getVexaApi = (): VexaApiClient => {
   if (!vexaApiClient) {
-    // Inicializa sem API key por padrão
     vexaApiClient = new VexaApiClient();
   }
   return vexaApiClient;
