@@ -28,7 +28,7 @@ const VexaConnectionTest = () => {
       } else {
         toast({
           title: "Informações do teste",
-          description: result.message || `Detalhes: ${result.error}`,
+          description: result.message || result.error || "Detalhes do teste coletados.",
           variant: "destructive",
         });
       }
@@ -122,7 +122,7 @@ const VexaConnectionTest = () => {
                     <strong>Status:</strong> {connectionResults.success ? "✅ Sucesso" : "ℹ️ Informativo"}
                   </div>
                   <div>
-                    <strong>Mensagem:</strong> {connectionResults.message || connectionResults.error}
+                    <strong>Mensagem:</strong> {connectionResults.message || connectionResults.error || "Nenhuma mensagem disponível"}
                   </div>
                   {connectionResults.data?.attempted_url && (
                     <div>
