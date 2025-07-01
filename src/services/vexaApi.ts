@@ -31,6 +31,12 @@ class VexaApiClient {
       }
 
       console.log('Vexa API Proxy Response:', response);
+
+      // Handle the new response format where success/failure is in the response body
+      if (response && response.success === false) {
+        throw new Error(response.details || response.error || 'Unknown API error');
+      }
+
       return response;
     } catch (error) {
       console.error('Vexa API Proxy Error:', error);
@@ -106,10 +112,18 @@ class VexaApiClient {
   async testConnection() {
     try {
       const response = await this.makeProxyRequest('health', 'gateway');
-      return { success: true, data: response };
+      return { 
+        success: true, 
+        data: response,
+        message: 'Conexão estabelecida com sucesso'
+      };
     } catch (error) {
       console.error('Connection test failed:', error);
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message,
+        message: 'Falha na conexão com a API da Vexa'
+      };
     }
   }
 }

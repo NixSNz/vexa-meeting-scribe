@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useBotInvite, useBotStatus } from '@/hooks/useVexaApi';
-import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const VexaConnectionTest = () => {
@@ -22,13 +22,13 @@ const VexaConnectionTest = () => {
       
       if (result.success) {
         toast({
-          title: "Conexão bem-sucedida!",
-          description: "API da Vexa está funcionando via proxy do Supabase.",
+          title: "Teste realizado!",
+          description: result.message || "Teste de conectividade concluído.",
         });
       } else {
         toast({
-          title: "Erro de conexão",
-          description: `Falha: ${result.error}`,
+          title: "Informações do teste",
+          description: result.message || `Detalhes: ${result.error}`,
           variant: "destructive",
         });
       }
@@ -40,7 +40,7 @@ const VexaConnectionTest = () => {
       
       toast({
         title: "Erro no teste",
-        description: "Falha ao testar conexão com a API da Vexa.",
+        description: "Falha ao executar teste de conectividade.",
         variant: "destructive",
       });
     }
@@ -48,12 +48,12 @@ const VexaConnectionTest = () => {
 
   const getStatusIcon = (success: boolean | null) => {
     if (success === null) return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-    return success ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />;
+    return success ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Info className="w-4 h-4 text-blue-500" />;
   };
 
   const getStatusText = (success: boolean | null) => {
     if (success === null) return "Não testado";
-    return success ? "Conectado" : "Falha na conexão";
+    return success ? "Conectado" : "Informações coletadas";
   };
 
   return (
@@ -106,7 +106,7 @@ const VexaConnectionTest = () => {
           </div>
           
           <div className="space-y-3">
-            <h4 className="font-medium">Status de Conectividade:</h4>
+            <h4 className="font-medium">Resultado dos Testes:</h4>
             
             {/* Connection Test Results */}
             <div className="p-3 bg-slate-50 rounded">
@@ -117,11 +117,23 @@ const VexaConnectionTest = () => {
                 </span>
               </div>
               {connectionResults && (
-                <div className="text-xs text-slate-600">
-                  {connectionResults.success 
-                    ? "Proxy do Supabase funcionando corretamente" 
-                    : `Erro: ${connectionResults.error}`
-                  }
+                <div className="text-xs text-slate-600 space-y-1">
+                  <div>
+                    <strong>Status:</strong> {connectionResults.success ? "✅ Sucesso" : "ℹ️ Informativo"}
+                  </div>
+                  <div>
+                    <strong>Mensagem:</strong> {connectionResults.message || connectionResults.error}
+                  </div>
+                  {connectionResults.data?.attempted_url && (
+                    <div>
+                      <strong>URL testada:</strong> {connectionResults.data.attempted_url}
+                    </div>
+                  )}
+                  {connectionResults.data?.details && (
+                    <div className="bg-white p-2 rounded border text-xs">
+                      <strong>Detalhes:</strong> {connectionResults.data.details}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -134,10 +146,10 @@ const VexaConnectionTest = () => {
                 ) : botStatus ? (
                   <CheckCircle className="w-4 h-4 text-green-500" />
                 ) : (
-                  <XCircle className="w-4 h-4 text-red-500" />
+                  <Info className="w-4 h-4 text-blue-500" />
                 )}
                 <span className="font-medium text-sm">
-                  Status do Bot: {statusLoading ? "Verificando..." : botStatus ? "Ativo" : "Inativo"}
+                  Status do Bot: {statusLoading ? "Verificando..." : botStatus ? "Info coletada" : "Não verificado"}
                 </span>
               </div>
               {botStatus && (
@@ -150,13 +162,13 @@ const VexaConnectionTest = () => {
         </div>
         
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-900 mb-2">Informações da Integração:</h4>
+          <h4 className="font-medium text-blue-900 mb-2">Diagnóstico da Conexão:</h4>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• VPS: Ubuntu 24.04 LTS com Docker (89.47.113.63)</li>
-            <li>• Proxy: Supabase Edge Functions para resolver CORS</li>
-            <li>• Serviços: Gateway, Bot Manager, Transcription Collector, Admin API</li>
-            <li>• Whisper: 2 instâncias para transcrição de áudio</li>
-            <li>• Status: {connectionResults?.success ? "✅ Conectado" : "❌ Desconectado"}</li>
+            <li>• <strong>Proxy:</strong> Supabase Edge Functions ativo</li>
+            <li>• <strong>CORS:</strong> Configurado para resolver bloqueios</li>
+            <li>• <strong>Timeout:</strong> 10 segundos por requisição</li>
+            <li>• <strong>Endpoints:</strong> Testando múltiplos caminhos automaticamente</li>
+            <li>• <strong>Status:</strong> {connectionResults?.success ? "✅ Funcionando" : connectionResults ? "⚠️ API pode estar offline ou com endpoints diferentes" : "⏳ Pendente"}</li>
           </ul>
         </div>
       </CardContent>
